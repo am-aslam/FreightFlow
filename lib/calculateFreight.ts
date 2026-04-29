@@ -1,17 +1,23 @@
 import type { FreightCalculation } from "@/types";
 
+const CBM_WEIGHT_DIVISOR = 500;
+const FREIGHT_RATE_PER_CBM = 265;
+const DOCUMENTATION_FEE = 150;
+
 export function calculateFreight(
   weight: number,
   volume: number,
   documentation: boolean,
 ): FreightCalculation {
-  const weightCBM = weight / 500;
-  const chargeableCBM = Math.max(weightCBM, volume);
-  const freightCost = chargeableCBM * 265;
-  const documentationFee = documentation ? 150 : 0;
+  const actualCBM = volume;
+  const weightCBM = weight / CBM_WEIGHT_DIVISOR;
+  const chargeableCBM = Math.max(weightCBM, actualCBM);
+  const freightCost = chargeableCBM * FREIGHT_RATE_PER_CBM;
+  const documentationFee = documentation ? DOCUMENTATION_FEE : 0;
   const totalCost = freightCost + documentationFee;
 
   return {
+    actualCBM,
     weightCBM,
     chargeableCBM,
     freightCost,

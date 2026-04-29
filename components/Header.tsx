@@ -9,7 +9,7 @@ export default function Header() {
           <p className="text-lg font-semibold tracking-normal text-gray-950">FreightFlow</p>
         </div>
         <div className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
-          Guangzhou <span className="text-sky-600">→</span> Jebel Ali
+          Guangzhou <span className="text-sky-600">-&gt;</span> Jebel Ali
         </div>
       </div>
     </header>
