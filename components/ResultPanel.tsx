@@ -1,144 +1,135 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import type { FreightCalculation } from "@/types";
+import { AnimatePresence, motion } from "framer-motion";
+import { Calculator, FileText, Ship, TrendingUp, Weight, type LucideIcon } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { formatCBM, formatCurrency } from "@/lib/currency";
+import type { CurrencyCode, FreightCalculation } from "@/types";
 
 type ResultPanelProps = {
-  result: FreightCalculation;
+  currency: CurrencyCode;
+  result: FreightCalculation | null;
 };
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
-
-const cbmFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
-
-function useCountUp(value: number, duration = 700) {
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    let frame = 0;
-    let start: number | null = null;
-
-    const animate = (timestamp: number) => {
-      start ??= timestamp;
-      const progress = Math.min((timestamp - start) / duration, 1);
-      const easedProgress = 1 - Math.pow(1 - progress, 3);
-
-      setDisplayValue(value * easedProgress);
-
-      if (progress < 1) {
-        frame = requestAnimationFrame(animate);
-      }
-    };
-
-    frame = requestAnimationFrame(animate);
-
-    return () => cancelAnimationFrame(frame);
-  }, [duration, value]);
-
-  return displayValue;
-}
-
-function DetailRow({
+function ResultRow({
+  icon: Icon,
   label,
   value,
+  highlighted = false,
 }: {
+  icon: LucideIcon;
   label: string;
   value: string;
+  highlighted?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-3">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-lg font-semibold text-gray-950">{value}</span>
+    <div
+      className={[
+        "flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition-colors",
+        highlighted
+          ? "border-[#13B8A6]/20 bg-[#13B8A6]/10 text-[#0F766E] dark:border-[#13B8A6]/30 dark:bg-[#13B8A6]/15 dark:text-[#7DDDD3]"
+          : "border-slate-200 bg-slate-50 text-slate-800 dark:border-white/10 dark:bg-white/5 dark:text-slate-100",
+      ].join(" ")}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm dark:bg-slate-900">
+          <Icon className="size-4" />
+        </span>
+        <span className="truncate text-sm font-semibold">{label}</span>
+      </div>
+      <span className="shrink-0 text-sm font-bold">{value}</span>
     </div>
   );
 }
 
-export default function ResultPanel({ result }: ResultPanelProps) {
-  const animatedTotal = useCountUp(result.totalCost);
-
+export default function ResultPanel({ currency, result }: ResultPanelProps) {
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
-      className="rounded-xl border border-gray-200/80 bg-white p-6 shadow-md shadow-gray-900/10 sm:p-8"
-    >
-      <div className="space-y-6">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">
-            Calculation breakdown
-          </p>
-          <h2 className="text-xl font-bold text-gray-950">Input to billing value</h2>
-        </div>
+    <Card id="breakdown" className="h-full overflow-hidden border-[#0B1F3A]/10">
+      <CardHeader className="bg-[#0B1F3A] text-white">
+        <CardTitle className="flex items-center gap-3 text-white">
+          <span className="flex size-10 items-center justify-center rounded-full bg-white/10">
+            <TrendingUp className="size-5 text-[#F59E0B]" />
+          </span>
+          Cost breakdown
+        </CardTitle>
+        <CardDescription className="text-slate-300">
+          Chargeable CBM uses the greater value between weight CBM and actual volume.
+        </CardDescription>
+      </CardHeader>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
-            <p className="text-sm text-gray-500">Weight CBM</p>
-            <p className="mt-2 text-lg font-semibold text-gray-950">
-              {cbmFormatter.format(result.weightCBM)}
-            </p>
-            <p className="mt-1 text-xs font-medium text-gray-500">Weight CBM = weight / 500</p>
-          </div>
+      <CardContent className="pt-6 sm:pt-8">
+        <AnimatePresence mode="wait">
+          {result ? (
+            <motion.div
+              key={`${result.totalCost}-${currency}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="space-y-3"
+            >
+              <ResultRow icon={Weight} label="Weight CBM" value={formatCBM(result.weightCBM)} />
+              <ResultRow icon={Ship} label="Volume CBM" value={formatCBM(result.actualCBM)} />
+              <ResultRow
+                icon={Calculator}
+                label="Chargeable CBM"
+                value={formatCBM(result.chargeableCBM)}
+                highlighted
+              />
+              <ResultRow
+                icon={Ship}
+                label="Freight Cost"
+                value={formatCurrency(result.freightCost, currency)}
+              />
+              {result.documentationFee > 0 ? (
+                <ResultRow
+                  icon={FileText}
+                  label="Documentation Fee"
+                  value={formatCurrency(result.documentationFee, currency)}
+                />
+              ) : null}
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
-            <p className="text-sm text-gray-500">Actual CBM</p>
-            <p className="mt-2 text-lg font-semibold text-gray-950">
-              {cbmFormatter.format(result.actualCBM)}
-            </p>
-            <p className="mt-1 text-xs font-medium text-gray-500">user entered volume</p>
-          </div>
-        </div>
+              <Separator className="my-5" />
 
-        <div className="rounded-xl border border-blue-200 bg-blue-50 px-5 py-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-blue-700">-&gt; Chargeable CBM</p>
-              <p className="mt-1 text-xs font-medium uppercase tracking-wider text-blue-600">
-                Chargeable CBM = max(weight CBM, actual CBM)
+              <div className="rounded-[24px] bg-[#0B1F3A] p-5 text-white shadow-[0_22px_55px_rgba(11,31,58,0.22)]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#13B8A6]">Total Cost</p>
+                    <p className="mt-1 text-xs text-white/65">Estimated freight value in {currency}</p>
+                  </div>
+                  <motion.p
+                    initial={{ scale: 0.96 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="text-3xl font-black tracking-normal sm:text-4xl"
+                  >
+                    {formatCurrency(result.totalCost, currency)}
+                  </motion.p>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex min-h-[430px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center dark:border-white/15 dark:bg-white/5"
+            >
+              <div className="flex size-14 items-center justify-center rounded-full bg-[#13B8A6]/10 text-[#0F766E]">
+                <Calculator className="size-6" />
+              </div>
+              <h3 className="mt-5 text-lg font-bold text-slate-950 dark:text-white">
+                Your estimate appears here
+              </h3>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Enter shipment details and calculate to see chargeable CBM, fees, and total cost.
               </p>
-            </div>
-            <span className="rounded-full bg-blue-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
-              Billing Value
-            </span>
-          </div>
-          <div className="mt-4 flex items-end justify-between gap-4">
-            <span className="text-sm font-medium text-blue-700">Used for billing</span>
-            <span className="text-3xl font-bold text-blue-700 sm:text-4xl">
-              {cbmFormatter.format(result.chargeableCBM)}
-            </span>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200" />
-
-        <div className="divide-y divide-gray-200">
-          <DetailRow label="Freight Cost" value={currencyFormatter.format(result.freightCost)} />
-          <DetailRow
-            label="Documentation Fee"
-            value={currencyFormatter.format(result.documentationFee)}
-          />
-        </div>
-
-        <div className="border-t border-gray-200" />
-
-        <div className="rounded-xl bg-gray-950 px-5 py-5 text-white shadow-md shadow-gray-950/10">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
-            <span className="text-sm font-semibold text-gray-300">Total Cost</span>
-            <span className="text-3xl font-bold tracking-normal text-emerald-300 sm:text-4xl">
-              {currencyFormatter.format(animatedTotal)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </motion.section>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </CardContent>
+    </Card>
   );
 }
